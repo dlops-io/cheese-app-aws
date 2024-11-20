@@ -3,6 +3,14 @@
   connection: ssh
   become: true
 
+  vars:
+    # Default to environment variables if extra-vars are not provided
+    aws_access_key: "{{ aws_access_key | default(lookup('env', 'AWS_ACCESS_KEY_ID')) }}"
+    aws_secret_key: "{{ aws_secret_key | default(lookup('env', 'AWS_SECRET_ACCESS_KEY')) }}"
+    aws_region: "{{ aws_region | default(lookup('env', 'AWS_DEFAULT_REGION', 'us-east-1')) }}"
+    aws_account_id: "{{ aws_account_id | default(lookup('env', 'AWS_ACCOUNT_ID')) }}"
+    docker_network_name: "{{ docker_network_name | default('cheese_app_network') }}"
+
   tasks:
     # Setup AWS credentials instead of GCP secrets
     - name: Create secrets directory
@@ -10,11 +18,15 @@
         path: "/srv/secrets"
         state: "directory"
         mode: 0755
-    - name: Copy AWS credentials
+    - name: Create AWS credentials file
       copy:
-        src: "/secrets/deployment-ac215-user_accessKeys.csv"
+        content: |
+          [default]
+          aws_access_key_id={{ aws_access_key }}
+          aws_secret_access_key={{ aws_secret_key }}
+          region={{ aws_region }}
         dest: "/srv/secrets/aws-credentials"
-        mode: 0644
+        mode: 0600
 
     # Create common network for all containers
     - name: Create network
