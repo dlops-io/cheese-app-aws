@@ -94,19 +94,28 @@ jobs:
           docker run --rm --name cheese-app-deployment \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/src/deployment:/deployment \
-            -v $HOME/.ssh:/root/.ssh \
-            -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -e AWS_DEFAULT_REGION="us-east-1" \
-            -e AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}" \
-            cheese-app-deployment sh -c "cd /deployment && \
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com && \
-            ansible-playbook deploy-setup-containers.yml -i inventory.yml \
-              --extra-vars 'aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }} \
-                           aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-                           aws_region=us-east-1 \
-                           aws_account_id=${{ secrets.AWS_ACCOUNT_ID }} \
-                           docker_network_name=cheese_app_network'"
+            -v ${{ github.workspace }}/src/deployment/secrets:/root/.ssh \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_DEFAULT_REGION \
+            -e AWS_ACCOUNT_ID \
+            cheese-app-deployment \
+            /bin/bash -c "cd /deployment && \
+              mkdir -p /root/.ssh && \
+              cp /deployment/secrets/ac215_2024.pem /root/.ssh/ && \
+              cp /deployment/secrets/config /root/.ssh/ && \
+              chown -R root:root /root/.ssh && \
+              chmod 700 /root/.ssh && \
+              chmod 600 /root/.ssh/ac215_2024.pem && \
+              chmod 600 /root/.ssh/config && \
+              ls -la /root/.ssh && \
+              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com && \
+              ansible-playbook deploy-setup-containers.yml -i inventory.yml \
+                --extra-vars \"aws_access_key='$AWS_ACCESS_KEY_ID' \
+                             aws_secret_key='$AWS_SECRET_ACCESS_KEY' \
+                             aws_region='$AWS_DEFAULT_REGION' \
+                             aws_account_id='$AWS_ACCOUNT_ID' \
+                             docker_network_name='cheese_app_network'\""
 
 
 # name: Continuous Integration and Continuous Deployment
