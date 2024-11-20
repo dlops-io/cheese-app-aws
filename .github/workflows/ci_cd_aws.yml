@@ -55,6 +55,14 @@ jobs:
           docker build -t cheese-app-frontend-react -f Dockerfile .
           docker tag cheese-app-frontend-react:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
+      
+      - name: Setup SSH Config
+        run: |
+          mkdir -p ~/.ssh
+            echo "Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile=/dev/null" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Run Deployment Container
         if: contains(github.event.head_commit.message, '/run-deploy-app')
