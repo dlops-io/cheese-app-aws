@@ -2,9 +2,12 @@ all:
   vars:
     ansible_user: ubuntu
     ansible_ssh_private_key_file: "/secrets/ac215_2024.pem" ## Change this
-    aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
-    aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
-    aws_account_id: "{{ lookup('env','AWS_ACCOUNT_ID') }}"
+    # aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+    # aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+    # aws_account_id: "{{ lookup('env','AWS_ACCOUNT_ID') }}"
+    aws_access_key: "{{ aws_access_key }}"  # Changed to use extra-vars
+    aws_secret_key: "{{ aws_secret_key }}"  # Changed to use extra-vars
+    aws_account_id: "{{ aws_account_id }}"
     aws_application_credentials: "/secrets/deployment-ac215-user_accessKeys.csv" ## Change this
 
     aws_region: "us-east-1"
