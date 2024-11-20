@@ -2,33 +2,39 @@
 
 echo "Container is running!!!"
 
-# Function to check if a string is base64 encoded
-is_base64() {
-    echo "$1" | base64 -d > /dev/null 2>&1
-    return $?
+# Function to check if a string is base64 encoded and clean
+clean_credentials() {
+    local cred="$1"
+    # Remove any whitespace, newlines, or carriage returns
+    cred=$(echo "$cred" | tr -d ' \n\r')
+    # Check if base64 encoded
+    if echo "$cred" | base64 -d > /dev/null 2>&1; then
+        cred=$(echo "$cred" | base64 -d)
+    fi
+    echo "$cred"
 }
 
-# Check if credentials are base64 encoded and decode if necessary
-if is_base64 "$AWS_SECRET_ACCESS_KEY"; then
-    AWS_SECRET_ACCESS_KEY=$(echo "$AWS_SECRET_ACCESS_KEY" | base64 -d)
-fi
+# Clean and process credentials
+AWS_ACCESS_KEY_ID=$(clean_credentials "$AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY=$(clean_credentials "$AWS_SECRET_ACCESS_KEY")
 
-# Remove any trailing newlines or carriage returns
-AWS_ACCESS_KEY_ID=$(echo "$AWS_ACCESS_KEY_ID" | tr -d '\n\r')
-AWS_SECRET_ACCESS_KEY=$(echo "$AWS_SECRET_ACCESS_KEY" | tr -d '\n\r')
-
-# Create AWS CLI configuration file
+# Create AWS CLI configuration file with proper formatting
 mkdir -p ~/.aws
-cat > ~/.aws/credentials << EOF
+cat > ~/.aws/credentials << EOL
 [default]
-aws_access_key_id = $AWS_ACCESS_KEY_ID
-aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
-EOF
+aws_access_key_id=${AWS_ACCESS_KEY_ID}
+aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+EOL
 
-cat > ~/.aws/config << EOF
+cat > ~/.aws/config << EOL
 [default]
-region = $AWS_DEFAULT_REGION
-EOF
+region=${AWS_DEFAULT_REGION}
+output=json
+EOL
+
+# Set proper permissions
+chmod 600 ~/.aws/credentials
+chmod 600 ~/.aws/config
 
 echo "AWS credentials file created"
 
