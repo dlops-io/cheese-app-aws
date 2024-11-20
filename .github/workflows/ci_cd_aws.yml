@@ -68,7 +68,7 @@ jobs:
             -e AWS_DEFAULT_REGION="us-east-1" \
             -e AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}" \
             cheese-app-deployment sh -c "cd /deployment && \
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com && \
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com && \
             ansible-playbook deploy-setup-containers.yml -i inventory.yml \
               --extra-vars 'aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }} \
                            aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
