@@ -1,0 +1,190 @@
+name: Continuous Integration and Continuous Deployment
+run-name: ${{ github.actor }} submitted a CI CD Action
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  Explore-GitHub-Actions:
+    if: contains(github.event.head_commit.message, '/run-')
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Comment ${{ github.event.head_commit.message }}"
+      - run: echo "Job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "Job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "Branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  
+
+      - name: Verify AWS Credentials
+        run: |
+          aws sts get-caller-identity
+          aws s3 ls
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+        
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - name: Build Deployment Container 
+        run: |-
+          cd ${{ github.workspace }}/src/deployment/
+          docker build -t cheese-app-deployment -f Dockerfile .
+
+      - name: Generate Docker tag
+        run: |
+          echo $(date +%Y%m%d-%H%M%S) > ${{ github.workspace }}/src/deployment/.docker-tag
+          export DOCKER_TAG=$(cat ${{ github.workspace }}/src/deployment/.docker-tag)
+          echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+      
+      - name: Build and push Docker image
+        run: |
+          cd ${{ github.workspace }}/src/frontend-react/
+          docker build -t cheese-app-frontend-react -f Dockerfile .
+          docker tag cheese-app-frontend-react:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
+
+      - name: Run Deployment Container
+        if: contains(github.event.head_commit.message, '/run-deploy-app')
+        run: |-
+          docker run --rm --name cheese-app-deployment \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${{ github.workspace }}/src/deployment:/deployment \
+            -v $HOME/.ssh:/root/.ssh \
+            -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -e AWS_DEFAULT_REGION="us-east-1" \
+            -e AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}" \
+            cheese-app-deployment sh -c "cd /deployment && \
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com && \
+            ansible-playbook deploy-setup-containers.yml -i inventory.yml \
+              --extra-vars 'aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }} \
+                           aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+                           aws_region=us-east-1 \
+                           aws_account_id=${{ secrets.AWS_ACCOUNT_ID }} \
+                           docker_network_name=cheese_app_network'"
+
+
+# name: Continuous Integration and Continuous Deployment
+# run-name: ${{ github.actor }} submitted a CI CD Action
+# on:
+#   push:
+#     branches: [ "main" ]
+
+# jobs:
+#   Explore-GitHub-Actions:
+#     if: contains(github.event.head_commit.message, '/run-')
+#     runs-on: ubuntu-latest
+#     steps:
+#       - run: echo "Comment ${{ github.event.head_commit.message }}"
+#       - run: echo "Job was automatically triggered by a ${{ github.event_name }} event."
+#       - run: echo "Job is now running on a ${{ runner.os }} server hosted by GitHub!"
+#       - run: echo "Branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+#       - name: Check out repository code
+#         uses: actions/checkout@v4
+#       - id: 'auth'
+#         uses: google-github-actions/auth@v1
+#         with:
+#           credentials_json: '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}'
+
+#       - name: Configure Google Cloud SDK
+#         uses: google-github-actions/setup-gcloud@v1
+#       - name: Configure Docker Client
+#         run: |-
+#           gcloud auth configure-docker # --quiet #authenticate to gcr
+#       - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+#       - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+#       - name: List files in the repository
+#         run: |
+#           ls ${{ github.workspace }}
+#       - name: Build Deployment Container 
+#         run: |-
+#           cd ${{ github.workspace }}/src/deployment/
+#           docker build -t mushroom-app-deployment -f Dockerfile .
+#       - name: Run Deploy App
+#         if: contains(github.event.head_commit.message, '/run-deploy-app')
+#         run: |-
+#           docker run --rm --name mushroom-app-deployment \
+#             -v /var/run/docker.sock:/var/run/docker.sock \
+#             -v $HOME/.ssh:/home/app/.ssh \
+#             -v ${{ github.workspace }}/src/frontend-react:/frontend-react \
+#             -v ${{ github.workspace }}/src/api-service:/api-service \
+#             -v ${{ github.workspace }}/src/data-collector:/data-collector \
+#             -v ${{ github.workspace }}/src/data-processor:/data-processor \
+#             --volume $GITHUB_WORKSPACE:/workspace \
+#             --mount type=bind,source=$GOOGLE_APPLICATION_CREDENTIALS,target=/secrets/deployment.json \
+#             --env GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json \
+#             -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+#             -e GCP_PROJECT=ac215-project \
+#             -e GCP_ZONE=us-central1-a \
+#             mushroom-app-deployment sh deploy-app.sh
+#       - name: Run Data Collector
+#         if: contains(github.event.head_commit.message, '/run-data-collector')
+#         run: |-
+#           docker run --rm --name mushroom-app-deployment \
+#             -v /var/run/docker.sock:/var/run/docker.sock \
+#             -v ${{ github.workspace }}/src/frontend-react:/frontend-react \
+#             -v ${{ github.workspace }}/src/api-service:/api-service \
+#             -v ${{ github.workspace }}/src/data-collector:/data-collector \
+#             -v ${{ github.workspace }}/src/data-processor:/data-processor \
+#             --mount type=bind,source=$GOOGLE_APPLICATION_CREDENTIALS,target=/secrets/deployment.json \
+#             -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json \
+#             -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+#             -e GCP_PROJECT=ac215-project \
+#             -e GCP_ZONE=us-central1-a \
+#             -e GCS_BUCKET_NAME=mushroom-app-ml-workflow-demo \
+#             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
+#             -e GCP_REGION=us-central1 \
+#             -e GCS_PACKAGE_URI=gs://mushroom-app-trainer-code \
+#             mushroom-app-deployment sh run-data-collector.sh
+#       - name: Run Data Processor
+#         if: contains(github.event.head_commit.message, '/run-data-processor')
+#         run: |-
+#           docker run --rm --name mushroom-app-deployment \
+#             -v /var/run/docker.sock:/var/run/docker.sock \
+#             -v ${{ github.workspace }}/src/frontend-react:/frontend-react \
+#             -v ${{ github.workspace }}/src/api-service:/api-service \
+#             -v ${{ github.workspace }}/src/data-collector:/data-collector \
+#             -v ${{ github.workspace }}/src/data-processor:/data-processor \
+#             --mount type=bind,source=$GOOGLE_APPLICATION_CREDENTIALS,target=/secrets/deployment.json \
+#             -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json \
+#             -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+#             -e GCP_PROJECT=ac215-project \
+#             -e GCP_ZONE=us-central1-a \
+#             -e GCS_BUCKET_NAME=mushroom-app-ml-workflow-demo \
+#             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
+#             -e GCP_REGION=us-central1 \
+#             -e GCS_PACKAGE_URI=gs://mushroom-app-trainer-code \
+#             mushroom-app-deployment sh run-data-processor.sh
+#       - name: Run ML Pipeline
+#         if: contains(github.event.head_commit.message, '/run-ml-pipeline')
+#         run: |-
+#           docker run --rm --name mushroom-app-deployment \
+#             -v /var/run/docker.sock:/var/run/docker.sock \
+#             -v ${{ github.workspace }}/src/frontend-react:/frontend-react \
+#             -v ${{ github.workspace }}/src/api-service:/api-service \
+#             -v ${{ github.workspace }}/src/data-collector:/data-collector \
+#             -v ${{ github.workspace }}/src/data-processor:/data-processor \
+#             --mount type=bind,source=$GOOGLE_APPLICATION_CREDENTIALS,target=/secrets/deployment.json \
+#             -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/deployment.json \
+#             -e USE_GKE_GCLOUD_AUTH_PLUGIN=True \
+#             -e GCP_PROJECT=ac215-project \
+#             -e GCP_ZONE=us-central1-a \
+#             -e GCS_BUCKET_NAME=mushroom-app-ml-workflow-demo \
+#             -e GCS_SERVICE_ACCOUNT=ml-workflow@ac215-project.iam.gserviceaccount.com \
+#             -e GCP_REGION=us-central1 \
+#             -e GCS_PACKAGE_URI=gs://mushroom-app-trainer-code \
+#             mushroom-app-deployment sh run-ml-pipeline.sh
+#       - run: echo "Job's status is ${{ job.status }}."
