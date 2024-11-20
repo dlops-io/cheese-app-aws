@@ -90,7 +90,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_DEFAULT_REGION: "us-east-1"
-        run: |-
+        run: |
           docker run --rm --name cheese-app-deployment \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/src/deployment:/deployment \
@@ -101,9 +101,6 @@ jobs:
             -e AWS_ACCOUNT_ID \
             cheese-app-deployment \
             /bin/bash -c "cd /deployment && \
-              mkdir -p /root/.ssh && \
-              cp /deployment/secrets/ac215_2024.pem /root/.ssh/ && \
-              cp /deployment/secrets/config /root/.ssh/ && \
               chown -R root:root /root/.ssh && \
               chmod 700 /root/.ssh && \
               chmod 600 /root/.ssh/ac215_2024.pem && \
