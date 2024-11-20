@@ -56,18 +56,32 @@ jobs:
           docker tag cheese-app-frontend-react:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-frontend-react:${{ env.DOCKER_TAG }}
       
-      - name: Setup SSH Config
+      - name: Setup SSH Config and Key
         run: |
           mkdir -p ~/.ssh
+          # Write SSH config
           echo "Host *
             StrictHostKeyChecking no
             UserKnownHostsFile=/dev/null" > ~/.ssh/config
+            
+          # Write SSH private key from secret
+          echo "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/ac215_2024.pem
+            
+          # Set correct permissions
           chmod 600 ~/.ssh/config
-        
+          chmod 600 ~/.ssh/ac215_2024.pem
+            
+          # Create deployment secrets directory and copy files
+          mkdir -p ${{ github.workspace }}/src/deployment/secrets
+          cp ~/.ssh/config ${{ github.workspace }}/src/deployment/secrets/
+          cp ~/.ssh/ac215_2024.pem ${{ github.workspace }}/src/deployment/secrets/
+          
       - name: Debug SSH Setup
         run: |
+          echo "Runner SSH directory:"
           ls -la ~/.ssh/
-          ls -la ${{ github.workspace }}/src/deployment/
+          echo "Deployment secrets directory:"
+          ls -la ${{ github.workspace }}/src/deployment/secrets/
 
       - name: Run Deployment Container
         if: contains(github.event.head_commit.message, '/run-deploy-app')
