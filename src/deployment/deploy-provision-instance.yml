@@ -1,0 +1,297 @@
+- name: Configure app server instance
+  hosts: appserver
+  connection: ssh
+  become: true
+
+  tasks:
+    # Get the current Debian distributor ID
+    - name: Get the current Debian distributor ID
+      shell: lsb_release -is | tr '[:upper:]' '[:lower:]'
+      register: ubuntu_distributor
+
+    # Get the current Debian release name
+    - name: Get the current Debian release name
+      shell: lsb_release -cs
+      register: ubuntu_version
+
+    # Set docker code name if supported
+    - name: Set docker code name if supported
+      set_fact:
+        docker_codename: "{{ ubuntu_version.stdout }}"
+      when: ubuntu_version.stdout in ['bionic', 'focal', 'jammy', 'kinetic', 'lunar', 'mantic']
+
+    - name: Set docker code name to 'focal' for unsupported Ubuntu versions
+      set_fact:
+        docker_codename: 'focal'
+      when:
+        - ubuntu_version.stdout not in ['bionic', 'focal', 'jammy', 'kinetic', 'lunar', 'mantic']
+        - ubuntu_distributor.stdout == 'ubuntu'
+
+    # Remove existing Docker apt repositories
+    - name: Remove existing Docker apt repositories
+      file:
+        path: "/etc/apt/sources.list.d/{{ item }}"
+        state: absent
+      loop:
+        - docker.list
+        - docker-ce.list
+        - get.docker.com.list
+        - docker-engine.list
+
+    # Create the directory for apt keyrings
+    - name: Create the directory for apt keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Remove Docker entries from /etc/apt/sources.list
+      lineinfile:
+        path: /etc/apt/sources.list
+        regexp: '^.*download.docker.com.*$'
+        state: absent
+
+    - name: Remove Docker repositories from /etc/apt/sources.list.d/
+      shell: "grep -l 'download.docker.com' /etc/apt/sources.list.d/* | xargs rm -f"
+      args:
+        warn: false
+
+    - name: Remove any existing Docker repositories via apt_repository
+      apt_repository:
+        repo: "deb https://download.docker.com/linux/{{ ubuntu_distributor.stdout }} {{ item }} stable"
+        state: absent
+      loop:
+        - "{{ ubuntu_version.stdout }}"
+        - "{{ docker_codename }}"
+        - 'focal'
+        - 'bionic'
+        - 'jammy'
+        - 'kinetic'
+        - 'lunar'
+        - 'mantic'
+        - 'noble'
+
+    # # Try downloading Docker GPG key with curl first
+    # - name: Download Docker GPG key using curl
+    #   shell: |
+    #     curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.gpg
+    #   register: curl_result
+    #   ignore_errors: yes
+
+    # # Fallback to wget if curl fails
+    # - name: Download Docker GPG key using wget (fallback)
+    #   shell: |
+    #     wget -qO /etc/apt/keyrings/docker.gpg https://download.docker.com/linux/ubuntu/gpg
+    #   when: curl_result.failed
+    #   register: wget_result
+    #   ignore_errors: yes
+
+    # # Debug output
+    # - name: Debug curl result
+    #   debug:
+    #     var: curl_result
+    #   when: curl_result is defined
+
+    # - name: Debug wget result
+    #   debug:
+    #     var: wget_result
+    #   when: wget_result is defined
+
+    # # Verify GPG key file exists and has content
+    # - name: Check GPG key file
+    #   stat:
+    #     path: /etc/apt/keyrings/docker.gpg
+    #   register: gpg_file
+
+    # - name: Debug GPG file status
+    #   debug:
+    #     var: gpg_file
+
+    # # Add Docker apt repository with Signed-By option
+    # - name: Add Docker apt repository with Signed-By option
+    #   apt_repository:
+    #     repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ ubuntu_distributor.stdout }} {{ docker_codename }} stable"
+    #     state: present
+    #     filename: 'docker.list'
+
+    # Download and import Docker GPG key
+    - name: Download Docker GPG key (step 1)
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg > /tmp/docker.key
+      register: curl_result
+
+    - name: Import the key (step 2)
+      shell: |
+        gpg --dearmor < /tmp/docker.key > /usr/share/keyrings/docker-archive-keyring.gpg
+      register: gpg_result
+
+    - name: Set correct permissions
+      file:
+        path: /usr/share/keyrings/docker-archive-keyring.gpg
+        mode: "0644"
+        owner: root
+        group: root
+
+    - name: Import key to apt (step 3)
+      shell: |
+        apt-key --keyring /usr/share/keyrings/docker-archive-keyring.gpg adv --keyserver keyserver.ubuntu.com --recv-keys 7EA0A9C3F273FCD8
+
+    # Add Docker apt repository with Signed-By option
+    - name: Add Docker apt repository with Signed-By option
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/{{ ubuntu_distributor.stdout }} {{ docker_codename }} stable"
+        state: present
+        filename: 'docker.list'
+
+    # Update apt cache
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # Install Docker
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+
+    # Continue with your existing tasks...
+    # Format and mount EBS volume
+    - name: "Format EBS volume if it does not contain a filesystem"
+      shell: "blkid -o value -s TYPE /dev/xvdf || mkfs.ext4 /dev/xvdf"
+
+    - name: "Create mount directory"
+      file:
+        dest: "/mnt/disk-1"
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: "Mount EBS volume"
+      mount:
+        path: "/mnt/disk-1"
+        src: "/dev/xvdf"
+        fstype: ext4
+        opts: defaults
+        state: mounted
+
+    - name: "Disable unattended upgrade timers"
+      raw: "systemctl disable --now {{item}}"
+      with_items:
+        - "apt-daily.timer"
+        - "apt-daily-upgrade.timer"
+
+    - name: "Reload systemctl daemon"
+      raw: "systemctl daemon-reload"
+
+    - name: "Wait for unattended upgrade to finish if running"
+      raw: "systemd-run --property=\"After=apt-daily.service apt-daily-upgrade.service\" --wait /bin/true"
+
+    - name: Update apt catalog
+      apt:
+        update_cache: "yes"
+        upgrade: "yes"
+        force_apt_get: "yes"
+
+    - name: Install dependencies
+      apt:
+        name:
+          # For docker
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - software-properties-common
+          # For the pip ansible module
+          - python3-setuptools
+          - python3-pip
+        force_apt_get: "yes"
+        state: present
+
+    # Install Python packages via apt instead of pip
+    - name: Install Python packages via apt
+      apt:
+        name:
+          - python3-requests
+          - python3-docker
+        state: present
+        update_cache: yes
+
+    # - name: Install Pip Packages
+    #   pip:
+    #     name:
+    #       - requests
+    #       - docker
+
+    - name: Create Docker group
+      group:
+        name: "docker"
+        state: present
+
+    - name: Install dependencies for AWS CLI
+      apt:
+        name:
+          - unzip
+          - curl
+        state: present
+        update_cache: yes
+
+        # Download AWS CLI v2 installer using curl
+    - name: Download AWS CLI v2 installer
+      shell: |
+        curl -o /tmp/awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+      register: download_result
+
+    - name: Debug download result
+      debug:
+        var: download_result
+
+    - name: Unzip AWS CLI v2 installer
+      unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: yes
+      register: aws_cli_unzip
+
+    - name: Debug AWS CLI unzip
+      debug:
+        var: aws_cli_unzip
+
+    - name: Install AWS CLI v2
+      command: "/tmp/aws/install"
+      args:
+        creates: "/usr/local/bin/aws"
+      register: aws_cli_install
+      become: yes
+
+    - name: Debug AWS CLI install
+      debug:
+        var: aws_cli_install
+
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_version
+
+    - name: Debug AWS CLI version
+      debug:
+        var: aws_version.stdout
+
+    - name: Clean up AWS CLI installer
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/awscliv2.zip"
+        - "/tmp/aws"
+
+    # Configure AWS credentials if needed
+    - name: Configure AWS credentials
+      shell: |
+        aws configure set aws_access_key_id "{{ aws_access_key }}"
+        aws configure set aws_secret_access_key "{{ aws_secret_key }}"
+        aws configure set default.region "{{ aws_region }}"
+
+    - name: Start docker service
+      service:
+        name: docker
+        state: started

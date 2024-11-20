@@ -1,0 +1,64 @@
+- name: "Build docker images and push them to ECR"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+  tasks:
+  # - name: "Create ECR repositories"
+  #   community.aws.aws_ecr_repository:
+  #     name: "{{ item }}"
+  #     region: "{{ aws_region }}"
+  #   loop:
+  #     - cheese-app-frontend-react
+  #     - cheese-app-api-service
+  #     - cheese-app-vector-db-cli
+  #   ignore_errors: yes  # In case repositories already exist
+  - name: "Get timestamp for docker tag"
+    shell: "(date +%Y%m%d%H%M%S)"
+    register: tag
+  - name: Print tag
+    debug:
+      var: tag
+  - name: Build frontend container image
+    community.general.docker_image:
+      build:
+        path: /frontend-react
+        platform: linux/amd64/v2
+      name: "{{ ecr_registry }}/cheese-app-frontend-react:{{ tag.stdout}}"
+      source: build
+  - name: Push frontend image to ECR
+    community.general.docker_image:
+      name: "{{ ecr_registry }}/cheese-app-frontend-react:{{ tag.stdout}}"
+      repository: "{{ ecr_registry }}/cheese-app-frontend-react:{{ tag.stdout}}"
+      push: yes
+      source: local
+  - name: Build api-service container image
+    community.general.docker_image:
+      build:
+        path: /api-service
+        platform: linux/amd64/v2
+      name: "{{ ecr_registry }}/cheese-app-api-service:{{ tag.stdout}}"
+      source: build
+  - name: Push api-service image to ECR
+    community.general.docker_image:
+      name: "{{ ecr_registry }}/cheese-app-api-service:{{ tag.stdout}}"
+      repository: "{{ ecr_registry }}/cheese-app-api-service:{{ tag.stdout}}"
+      push: yes
+      source: local
+  - name: Build vector-db-cli container image
+    community.general.docker_image:
+      build:
+        path: /vector-db
+        platform: linux/amd64/v2
+      name: "{{ ecr_registry }}/cheese-app-vector-db-cli:{{ tag.stdout}}"
+      source: build
+  - name: Push vector-db-cli image to ECR
+    community.general.docker_image:
+      name: "{{ ecr_registry }}/cheese-app-vector-db-cli:{{ tag.stdout}}"
+      repository: "{{ ecr_registry }}/cheese-app-vector-db-cli:{{ tag.stdout}}"
+      push: yes
+      source: local
+  - name: "Save docker tag"
+    shell: echo {{ tag.stdout}} > .docker-tag
+  - name: "Remove all unused containers"
+    shell: docker system prune -a

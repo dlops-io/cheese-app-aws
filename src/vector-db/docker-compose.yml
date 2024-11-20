@@ -1,0 +1,39 @@
+networks:
+    default:
+        name: cheese-app-network
+        external: true
+services:
+    cheese-app-vector-db-cli:
+        image: cheese-app-vector-db-cli
+        container_name: cheese-app-vector-db-cli
+        volumes:
+            - ../../../secrets:/secrets
+            - ../vector-db:/app
+        environment:
+            # GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS
+            # GCP_PROJECT: $GCP_PROJECT
+            # Add AWS credentials
+            AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+            AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+            CHROMADB_HOST: cheese-app-vector-db
+            CHROMADB_PORT: 8000
+        depends_on:
+            chromadb:
+                condition: service_healthy
+    chromadb:
+        image: chromadb/chroma:0.5.18
+        container_name: cheese-app-vector-db
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 5s
+        ports:
+            - 8000:8000
+        volumes:
+            - ./docker-volumes/chromadb:/chroma/chroma
+        environment:
+            - IS_PERSISTENT=TRUE
+            - ANONYMIZED_TELEMETRY=FALSE

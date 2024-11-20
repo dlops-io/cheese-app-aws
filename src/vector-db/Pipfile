@@ -1,0 +1,20 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+user-agent = "*"
+requests = "*"
+pandas = "*"
+langchain = "*"
+llama-index = "*"
+chromadb = "0.5.18"
+langchain-community = "*"
+boto3 = "*"
+langchain-aws = "*"
+
+[requires]
+python_version = "3.12"

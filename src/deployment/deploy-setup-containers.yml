@@ -1,0 +1,233 @@
+- name: Configure containers on app server
+  hosts: appserver
+  connection: ssh
+  become: true
+
+  tasks:
+    # Setup AWS credentials instead of GCP secrets
+    - name: Create secrets directory
+      file:
+        path: "/srv/secrets"
+        state: "directory"
+        mode: 0755
+    - name: Copy AWS credentials
+      copy:
+        src: "/secrets/deployment-ac215-user_accessKeys.csv"
+        dest: "/srv/secrets/aws-credentials"
+        mode: 0644
+
+    # Create common network for all containers
+    - name: Create network
+      docker_network:
+        name: "{{docker_network_name}}"
+        driver: bridge
+        attachable: yes
+        force: yes  # Add this to recreate network if it exists
+        state: present  # Add this to ensure network is created
+
+    # Create required directories first
+    - name: Create persistent directory
+      file:
+        path: "/mnt/disk-1/persistent"
+        state: "directory"
+        mode: 0777
+    - name: Create chromadb directory
+      file:
+        path: "/mnt/disk-1/chromadb"
+        state: "directory"
+        mode: 0777
+
+    - name: Copy docker tag file
+      copy:
+        src: .docker-tag
+        dest: .docker-tag
+        mode: 0644
+    - name: "Get docker tag"
+      shell: "cat .docker-tag"
+      register: tag
+    - name: Print tag
+      debug:
+        var: tag
+    - name: Login to AWS ECR
+      shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+    # - name: Clean up Docker system
+    #   shell: |
+    #     docker system prune -af
+    #     docker volume prune -f
+    #   ignore_errors: yes
+
+    - name: Create frontend container
+      docker_container:
+        name: "frontend"
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ tag.stdout}}"
+        state: started
+        recreate: yes
+        pull: yes
+        restart: yes
+        published_ports:
+          - 3000:3000
+        networks:
+          - name: "{{docker_network_name}}"
+        env:
+          NEXTAUTH_SECRET: "{{ nextauth_secret }}"  
+          NEXTAUTH_URL: "http://{{ inventory_hostname }}"  
+
+
+    - name: Create vector-db container
+      docker_container:
+        name: "vector-db"
+        image: "chromadb/chroma:latest"
+        state: started
+        recreate: yes
+        published_ports:
+          - 8000:8000
+        env:
+          IS_PERSISTENT: "TRUE"
+          ANONYMIZED_TELEMETRY: "FALSE"
+        networks:
+          - name: "{{docker_network_name}}"
+        volumes:
+          - /mnt/disk-1/chromadb:/chroma/chroma
+
+    - name: Load Vector DB
+      shell: docker run --rm -it 
+        -e AWS_ACCESS_KEY_ID="{{ aws_access_key }}" 
+        -e AWS_SECRET_ACCESS_KEY="{{ aws_secret_key }}" 
+        -e AWS_DEFAULT_REGION="{{ aws_region }}"
+        -e CHROMADB_HOST="vector-db" 
+        -e CHROMADB_PORT="8000" 
+        --network "{{docker_network_name}}" 
+        "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ tag.stdout}}" 
+        cli.py --download --load --chunk_type recursive-split
+
+    - name: Create api-service container
+      docker_container:
+        name: "api-service"
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ tag.stdout}}"
+        state: started
+        recreate: yes
+        published_ports:
+          - 9000:9000
+        env:
+          AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+          AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+          AWS_DEFAULT_REGION: "{{ aws_region }}"
+          S3_BUCKET_NAME: "cheese-app-models"
+          CHROMADB_HOST: "vector-db"
+          CHROMADB_PORT: "8000"
+        networks:
+          - name: "{{docker_network_name}}"
+        volumes:
+          - /mnt/disk-1/persistent:/persistent
+          - /srv/secrets:/secrets
+
+
+#### GCP version
+# - name: Configure containers on app server
+#   hosts: appserver
+#   connection: ssh
+#   become: true
+
+#   tasks:
+#     # Setup secrets so containers can have access to GCP resources 
+#     - name: Create secrets directory
+#       file:
+#         path: "/srv/secrets"
+#         state: "directory"
+#         mode: 0755
+#     - name: Copy service account key file
+#       copy:
+#         src: ../secrets/gcp-service.json
+#         dest: "/srv/secrets/gcp-service.json"
+#         mode: 0644
+#     - name: Authenticate gcloud using service account
+#       shell: "gcloud auth activate-service-account --key-file /srv/secrets/gcp-service.json"
+    
+#     # Create common network for all containers
+#     - name: Create network
+#       docker_network:
+#           name: "{{docker_network_name}}"
+#           driver: "bridge"
+#           attachable: "yes"
+
+#     - name: Copy docker tag file
+#       copy:
+#         src: .docker-tag
+#         dest: .docker-tag
+#         mode: 0644
+#     - name: "Get docker tag"
+#       shell: "cat .docker-tag"
+#       register: tag
+#     - name: Print tag
+#       debug:
+#         var: tag
+#     - name: Create frontend container
+#       docker_container:
+#         name: "frontend"
+#         image: "gcr.io/{{ gcp_project }}/cheese-app-frontend-react:{{ tag.stdout}}"
+#         state: started
+#         recreate: yes
+#         pull: yes
+#         restart: yes
+#         published_ports:
+#           - 3000:3000
+#         networks:
+#           - name: "{{docker_network_name}}"
+
+#     # Create a folder on persistent disk
+#     - name: Create persistent directory
+#       file:
+#         path: "/mnt/disk-1/persistent"
+#         state: "directory"
+#         mode: 0777
+#     - name: Create chromadb directory
+#       file:
+#         path: "/mnt/disk-1/chromadb"
+#         state: "directory"
+#         mode: 0777
+
+#     - name: Create vector-db container
+#       docker_container:
+#         name: "vector-db"
+#         image: "chromadb/chroma:0.5.6"
+#         state: started
+#         recreate: yes
+#         published_ports:
+#           - 8000:8000
+#         env:
+#           IS_PERSISTENT: "TRUE"
+#           ANONYMIZED_TELEMETRY: "FALSE"
+#         networks:
+#           - name: "{{docker_network_name}}"
+#         volumes:
+#           - /mnt/disk-1/chromadb:/chroma/chroma
+
+#     - name: Load Vector DB
+#       shell: docker run --rm -it -e GCP_PROJECT="{{ gcp_project }}" -e CHROMADB_HOST="vector-db" -e CHROMADB_PORT="8000" -e GOOGLE_APPLICATION_CREDENTIALS="/secrets/gcp-service.json" -v /srv/secrets:/secrets --network "{{docker_network_name}}" "gcr.io/{{ gcp_project }}/cheese-app-vector-db-cli:{{ tag.stdout}}" cli.py --download --load --chunk_type recursive-split
+
+#     - name: Create api-service container
+#       docker_container:
+#         name: "api-service"
+#         image: "gcr.io/{{ gcp_project }}/cheese-app-api-service:{{ tag.stdout}}"
+#         state: started
+#         recreate: yes
+#         published_ports:
+#           - 9000:9000
+#         env:
+#           GOOGLE_APPLICATION_CREDENTIALS: "/secrets/gcp-service.json"
+#           GCP_PROJECT: "{{ gcp_project }}"
+#           GCS_BUCKET_NAME: "cheese-app-models"
+#           CHROMADB_HOST: "vector-db"
+#           CHROMADB_PORT: "8000"
+#         networks:
+#           - name: "{{docker_network_name}}"
+#         volumes:
+#           - /mnt/disk-1/persistent:/persistent
+#           - /srv/secrets:/secrets
+  
+#     - name: Check if containers are running
+#       shell: docker ps
+    
+#     - name: "Remove all unused containers"
+#       shell: docker system prune -a -f

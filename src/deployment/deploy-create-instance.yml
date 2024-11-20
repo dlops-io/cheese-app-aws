@@ -1,0 +1,127 @@
+- name: Create App Application Machine
+  hosts: localhost
+  # Remove GCP environment variables
+  
+  tasks:
+    # Replace GCP firewall rules with AWS security group
+    - name: Create security group
+      ec2_group:
+        name: app_security_group
+        description: Security group for application server
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            ports: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            ports: 443
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            ports: 22
+            cidr_ip: 0.0.0.0/0
+        state: present
+      register: security_group
+      when: cluster_state == "present"
+
+    # Replace GCP disk with AWS EBS volume
+    - name: Create EBS volume
+      ec2_vol:
+        region: "{{ aws_region }}"
+        zone: "{{ aws_region }}a"
+        volume_size: "{{ persistent_disk_size }}"
+        name: "{{ persistent_disk_name }}"
+        volume_type: gp3
+        encrypted: false
+        state: present
+      register: ebs_volume
+      when: cluster_state == "present"
+
+    # # Replace GCP instance with EC2 instance
+    - name: Create EC2 instance
+      amazon.aws.ec2_instance:
+        instance_type: "{{ aws_instance_type }}"
+        image_id: "{{ aws_ami_id }}"
+        region: "{{ aws_region }}"
+        security_group: "{{ security_group.group_id }}"
+        key_name: "{{ aws_keypair_name }}"
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: "{{ machine_disk_size }}"
+              delete_on_termination: true  # Optional, ensures volume is deleted when instance is terminated
+              volume_type: gp2              # Optional, defines volume type (gp2 is general-purpose SSD)
+          - device_name: /dev/sdf
+            ebs:
+              volume_size: 100              # Define the size of the second volume
+              delete_on_termination: true
+              volume_type: gp2
+        tags:
+          Name: "{{ aws_instance_name }}"
+        wait: yes
+      register: instance
+
+
+    # - name: Create EC2 instance
+    #   amazon.aws.ec2_instance:
+    #     name: "{{ machine_instance_name }}"
+    #     instance_type: "{{ aws_instance_type }}"
+    #     image_id: "{{ aws_ami_id }}"  # You'll need to specify an Amazon Linux or other AMI ID
+    #     region: "{{ aws_region }}"
+    #     key_name: "{{ aws_keypair_name }}"
+    #     security_group: app_security_group
+    #     volumes:
+    #       - device_name: /dev/xvda
+    #         ebs:
+    #           volume_size: "{{ machine_disk_size }}"
+    #           delete_on_termination: true
+    #           volume_type: gp3              # Optional, defines volume type (gp2 is general-purpose SSD)
+    #           encrypted: false
+    #     state: "{{ cluster_state }}"
+    #     wait: yes
+    #   register: instance
+
+    # Replace the existing wait task with these two tasks
+    - name: Wait for instance to be running
+      amazon.aws.ec2_instance_info:
+        instance_ids:
+          - "{{ instance.instances[0].instance_id }}"
+        region: "{{ aws_region }}"
+      register: instance_info
+      until: instance_info.instances[0].state.name == 'running'
+      retries: 30
+      delay: 10
+      when: cluster_state == "present"
+
+    - name: Wait for SSH to come up
+      wait_for: 
+        host: "{{ instance.instances[0].public_ip_address }}" 
+        port: 22 
+        delay: 10 
+        timeout: 120
+      when: cluster_state == "present"
+    
+    # Attach the existing EBS volume as a separate step
+    - name: Attach EBS volume to instance
+      ec2_vol:
+        region: "{{ aws_region }}"
+        instance: "{{ instance.instances[0].instance_id }}"
+        id: "{{ ebs_volume.volume_id }}"
+        device_name: /dev/sdf
+        state: present
+      when: cluster_state == "present"
+
+    # Replace GCP disk removal with EBS volume removal
+    - name: Remove EBS volume
+      ec2_vol:
+        region: "{{ aws_region }}"
+        id: "{{ ebs_volume.volume_id }}"
+        state: absent
+      when: cluster_state == "absent"
+
+    - name: Wait for SSH to come up
+      wait_for: host={{ instance.instances[0].public_ip_address }} port=22 delay=10 timeout=120
+      when: cluster_state == "present"
+
+    - name: Add host to groupname
+      add_host: hostname={{ instance.instances[0].public_ip_address }} groupname=new_instances
+      when: cluster_state == "present"
