@@ -114,33 +114,29 @@
 
     # Add these tasks before creating new containers
     # Replace the Stop and Remove container tasks with this
-    - name: Stop and remove existing containers
+    - name: Force stop and remove all containers
       shell: |
-        docker stop {{ item }} || true
-        docker rm {{ item }} || true
-      with_items:
-        - "frontend"
-        - "api-service"
-        - "vector-db"
+        echo "Stopping containers..."
+        docker stop frontend api-service vector-db || true
+        echo "Removing containers..."
+        docker rm frontend api-service vector-db || true
+        echo "Removing images..."
+        docker rmi $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/*' -q) || true
       ignore_errors: yes
 
-    - name: Remove old images
+    - name: Force pull new images
       shell: |
-        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react' -q) || true
-        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli' -q) || true
-        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service' -q) || true
-      ignore_errors: yes
+        echo "Pulling frontend image..."
+        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ docker_tag }}
+        echo "Pulling vector-db-cli image..."
+        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ docker_tag }}
+        echo "Pulling api-service image..."
+        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ docker_tag }}
+      register: pull_output
 
-    # Add force pull for new images
-    - name: Pull latest images
-      docker_image:
-        name: "{{ item }}:{{ docker_tag }}"
-        source: pull
-        force_source: yes
-      with_items:
-        - "{{ ecr_registry }}/cheese-app-frontend-react"
-        - "{{ ecr_registry }}/cheese-app-vector-db-cli"
-        - "{{ ecr_registry }}/cheese-app-api-service"
+    - name: Show pull output
+      debug:
+        var: pull_output.stdout_lines
 
     - name: Create frontend container
       docker_container:
