@@ -59,9 +59,9 @@ jobs:
   
           # Vector DB CLI
           cd ${{ github.workspace }}/src/vector-db/
-          docker build -t cheese-app-vector-db -f Dockerfile .
-          docker tag cheese-app-vector-db:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-vector-db:${{ env.DOCKER_TAG }}
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-vector-db:${{ env.DOCKER_TAG }}
+          docker build -t cheese-app-vector-db-cli  -f Dockerfile .
+          docker tag cheese-app-vector-db-cli:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-vector-db-cli:${{ env.DOCKER_TAG }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/cheese-app-vector-db-cli:${{ env.DOCKER_TAG }}
   
           # API Service
           cd ${{ github.workspace }}/src/api-service/
