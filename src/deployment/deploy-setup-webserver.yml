@@ -3,7 +3,18 @@
   connection: ssh
   become: true
 
+  # vars:
+  #   docker_network_name: "{{ docker_network_name }}"  # This will use the value from inventory.yml
+
   tasks:
+    # Ensure network exists first
+    - name: Ensure Docker network exists
+      docker_network:
+        name: "appnetwork"
+        state: present
+        driver: bridge
+        attachable: yes
+
     # Create and Setup Nginx
     - name: Copy nginx config files
       copy:
@@ -19,7 +30,7 @@
           - 80:80
           - 443:443
         networks:
-          - name: "{{docker_network_name}}"
+          - name: "appnetwork"
         volumes:
           - /conf/nginx/nginx.conf:/etc/nginx/nginx.conf
 

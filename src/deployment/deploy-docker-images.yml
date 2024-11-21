@@ -2,23 +2,19 @@
   hosts: localhost
   gather_facts: false
   vars:
+    # aws_account_id: "{{ lookup('env','AWS_ACCOUNT_ID') }}"
+    aws_account_id: "744940782804"
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
   tasks:
-  # - name: "Create ECR repositories"
-  #   community.aws.aws_ecr_repository:
-  #     name: "{{ item }}"
-  #     region: "{{ aws_region }}"
-  #   loop:
-  #     - cheese-app-frontend-react
-  #     - cheese-app-api-service
-  #     - cheese-app-vector-db-cli
-  #   ignore_errors: yes  # In case repositories already exist
+ 
   - name: "Get timestamp for docker tag"
     shell: "(date +%Y%m%d%H%M%S)"
     register: tag
   - name: Print tag
     debug:
       var: tag
+
+
   - name: Build frontend container image
     community.general.docker_image:
       build:

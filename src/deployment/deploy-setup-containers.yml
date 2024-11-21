@@ -4,15 +4,32 @@
   become: true
 
   vars:
-    # Default to environment variables if extra-vars are not provided
-    aws_access_key: "{{ aws_access_key | default(lookup('env', 'AWS_ACCESS_KEY_ID')) }}"
-    aws_secret_key: "{{ aws_secret_key | default(lookup('env', 'AWS_SECRET_ACCESS_KEY')) }}"
-    aws_region: "{{ aws_region | default(lookup('env', 'AWS_DEFAULT_REGION', 'us-east-1')) }}"
-    aws_account_id: "{{ aws_account_id | default(lookup('env', 'AWS_ACCOUNT_ID')) }}"
-    docker_network_name: "{{ docker_network_name | default('cheese_app_network') }}"
+    # Use environment variables for sensitive data
+    aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    aws_region: "us-east-1"
+    aws_account_id: "744940782804"
+    docker_network_name: "appnetwork"
+    ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
 
+    # # Hardcode these values or use simple environment lookups
+    # aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    # aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    # aws_region: "us-east-1"  # Hardcode if it's always the same
+    # aws_account_id: "744940782804"  # Hardcode if it's always the same
+    # docker_network_name: "cheese_app_network"
+
+  # Setup AWS credentials instead of GCP secrets
   tasks:
-    # Setup AWS credentials instead of GCP secrets
+    # Add debug task to verify variables
+    - name: Debug variables
+      debug:
+        msg:
+          - "Region: '{{ aws_region }}'"
+          - "Registry: '{{ ecr_registry }}'"
+          - "Account ID: '{{ aws_account_id }}'"
+
+
     - name: Create secrets directory
       file:
         path: "/srv/secrets"
@@ -60,14 +77,28 @@
     - name: Print tag
       debug:
         var: tag
-    - name: Login to AWS ECR
-      shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
 
-    # - name: Clean up Docker system
-    #   shell: |
-    #     docker system prune -af
-    #     docker volume prune -f
-    #   ignore_errors: yes
+    - name: Get ECR login password
+      shell: "aws ecr get-login-password --region {{ aws_region }}"
+      register: ecr_password
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+        AWS_DEFAULT_REGION: "us-east-1"
+
+    - name: Login to Docker ECR
+      shell: "echo '{{ ecr_password.stdout }}' | docker login --username AWS --password-stdin {{ ecr_registry }}"
+      no_log: true  # Don't log password in output
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+
+    - name: Debug ECR registry
+      debug:
+        msg: 
+          - "Region: {{ aws_region }}"
+          - "Registry: {{ ecr_registry }}"
 
     - name: Create frontend container
       docker_container:

@@ -7,7 +7,7 @@ set -e
 
 # Set vairables
 export BASE_DIR=$(pwd)
-export SECRETS_DIR="$(pwd)/../../../secrets/"
+export SECRETS_DIR="$(pwd)/../../../../secrets/"
 
 # Read AWS credentials from CSV file
 export CSV_FILE="${SECRETS_DIR}llm-service_accessKeys.csv"
@@ -28,7 +28,7 @@ export AWS_DEFAULT_REGION="us-east-1" # e.g., us-east-1
 # Define some environment variables
 export IMAGE_NAME="cheese-app-api-service"
 
-export PERSISTENT_DIR=$(pwd)/../../../persistent-folder/
+export PERSISTENT_DIR=$(pwd)/../../../../persistent-folder/
 
 # export GCS_BUCKET_NAME="cheese-app-models"
 export CHROMADB_HOST="cheese-app-vector-db"
@@ -56,5 +56,3 @@ docker run --rm --name $IMAGE_NAME -ti \
 -e CHROMADB_PORT=$CHROMADB_PORT \
 --network cheese-app-network \
 $IMAGE_NAME
-
-# -e GCS_BUCKET_NAME=$GCS_BUCKET_NAME \

@@ -25,6 +25,9 @@ echo "AWS credentials file created"
 echo "Testing AWS Configuration..."
 if aws sts get-caller-identity; then
     echo "AWS credentials are working"
+    # Add ECR login here - after AWS credentials are verified
+    echo "Logging into ECR..."
+    aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 else
     echo "AWS credentials verification failed"
     echo "Credentials file permissions:"
@@ -33,11 +36,17 @@ else
     aws --version
     exit 1
 fi
-
-# Execute the passed command
-exec "$@"
-
 # # Configure ECR (Elastic Container Registry)
 # aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
-# /bin/bash
+args="$@"
+echo $args
+
+if [[ -z ${args} ]]; 
+then
+    #/bin/bash
+    pipenv shell
+else
+    #/bin/bash $args ## Github Actions
+    pipenv run $args
+fi
