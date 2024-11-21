@@ -131,6 +131,17 @@
         docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service' -q) || true
       ignore_errors: yes
 
+    # Add force pull for new images
+    - name: Pull latest images
+      docker_image:
+        name: "{{ item }}:{{ docker_tag }}"
+        source: pull
+        force_source: yes
+      with_items:
+        - "{{ ecr_registry }}/cheese-app-frontend-react"
+        - "{{ ecr_registry }}/cheese-app-vector-db-cli"
+        - "{{ ecr_registry }}/cheese-app-api-service"
+
     - name: Create frontend container
       docker_container:
         name: "frontend"
