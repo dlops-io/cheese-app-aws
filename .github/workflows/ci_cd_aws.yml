@@ -113,6 +113,7 @@ jobs:
             -e AWS_SECRET_ACCESS_KEY \
             -e AWS_DEFAULT_REGION \
             -e AWS_ACCOUNT_ID \
+            -e DOCKER_TAG \
             cheese-app-deployment \
             /bin/bash -c "cd /deployment && \
               chown -R root:root /root/.ssh && \
@@ -126,7 +127,8 @@ jobs:
                              aws_secret_key='$AWS_SECRET_ACCESS_KEY' \
                              aws_region='$AWS_DEFAULT_REGION' \
                              aws_account_id='$AWS_ACCOUNT_ID' \
-                             docker_network_name='cheese_app_network'\""
+                             docker_network_name='cheese_app_network' \
+                             tag='$DOCKER_TAG'\""
 
       - name: Setup Webserver
         if: contains(github.event.head_commit.message, '/run-deploy-app')
