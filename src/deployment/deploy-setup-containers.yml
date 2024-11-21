@@ -14,6 +14,11 @@
 
   # Setup AWS credentials instead of GCP secrets
   tasks:
+    - name: Print start of deployment
+      debug:
+        msg: "=== Starting deployment with tag: {{ lookup('env', 'DOCKER_TAG') }} ==="
+
+
     # Add debug task to verify variables
     - name: Debug variables
       debug:
