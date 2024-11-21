@@ -130,5 +130,3 @@ Once the command runs go to `http://<External IP>/`
 ```
 ansible-playbook deploy-create-instance.yml -i inventory.yml --extra-vars cluster_state=absent
 ```
-
-test

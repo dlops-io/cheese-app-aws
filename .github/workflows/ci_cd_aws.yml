@@ -105,7 +105,6 @@ jobs:
           AWS_DEFAULT_REGION: "us-east-1"
           DOCKER_TAG: ${{ env.DOCKER_TAG }} 
         run: |
-          # Deploy containers
           docker run --rm --name cheese-app-deployment \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/src/deployment:/deployment \
@@ -122,15 +121,9 @@ jobs:
               chmod 600 /root/.ssh/ac215_2024.pem && \
               chmod 600 /root/.ssh/config && \
               ls -la /root/.ssh && \
-              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com && \
-              ansible-playbook deploy-setup-containers.yml -i inventory.yml  && \
-              ansible-playbook deploy-setup-webserver.yml -i inventory.yml"  \
-                --extra-vars \"aws_access_key='$AWS_ACCESS_KEY_ID' \
-                             aws_secret_key='$AWS_SECRET_ACCESS_KEY' \
-                             aws_region='$AWS_DEFAULT_REGION' \
-                             aws_account_id='$AWS_ACCOUNT_ID' \
-                             docker_network_name='appnetwork' \
-                             docker_tag='$DOCKER_TAG'\""
+              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin \$AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com && \
+              ansible-playbook deploy-setup-containers.yml -i inventory.yml --extra-vars \"aws_access_key=\$AWS_ACCESS_KEY_ID aws_secret_key=\$AWS_SECRET_ACCESS_KEY aws_region=\$AWS_DEFAULT_REGION aws_account_id=\$AWS_ACCOUNT_ID docker_network_name=appnetwork docker_tag=\$DOCKER_TAG\" && \
+              ansible-playbook deploy-setup-webserver.yml -i inventory.yml"
 
       # - name: Setup Webserver
       #   if: contains(github.event.head_commit.message, '/run-deploy-app')
