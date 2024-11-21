@@ -61,25 +61,6 @@
       register: instance
 
 
-    # - name: Create EC2 instance
-    #   amazon.aws.ec2_instance:
-    #     name: "{{ machine_instance_name }}"
-    #     instance_type: "{{ aws_instance_type }}"
-    #     image_id: "{{ aws_ami_id }}"  # You'll need to specify an Amazon Linux or other AMI ID
-    #     region: "{{ aws_region }}"
-    #     key_name: "{{ aws_keypair_name }}"
-    #     security_group: app_security_group
-    #     volumes:
-    #       - device_name: /dev/xvda
-    #         ebs:
-    #           volume_size: "{{ machine_disk_size }}"
-    #           delete_on_termination: true
-    #           volume_type: gp3              # Optional, defines volume type (gp2 is general-purpose SSD)
-    #           encrypted: false
-    #     state: "{{ cluster_state }}"
-    #     wait: yes
-    #   register: instance
-
     # Replace the existing wait task with these two tasks
     - name: Wait for instance to be running
       amazon.aws.ec2_instance_info:

@@ -8,7 +8,7 @@
     aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
     aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
     aws_region: "us-east-1"
-    aws_account_id: "744940782804"
+    aws_account_id: "{{ lookup('env', 'AWS_ACCOUNT_ID') }}"
     docker_network_name: "appnetwork"
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
 
@@ -112,6 +112,24 @@
       debug:
         msg: "Using docker tag: {{ docker_tag }}"
 
+    # Add these tasks before creating new containers
+    # Replace the Stop and Remove container tasks with this
+    - name: Stop and remove existing containers
+      shell: |
+        docker stop {{ item }} || true
+        docker rm {{ item }} || true
+      with_items:
+        - "frontend"
+        - "api-service"
+        - "vector-db"
+      ignore_errors: yes
+
+    - name: Remove old images
+      shell: |
+        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react' -q) || true
+        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli' -q) || true
+        docker image rm -f $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service' -q) || true
+      ignore_errors: yes
 
     - name: Create frontend container
       docker_container:
