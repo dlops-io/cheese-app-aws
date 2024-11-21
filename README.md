@@ -76,6 +76,13 @@ Click on "Review Policy" -> Name: CheeseAppECRPolicy -> Create Policy
 - Change the AWS Access Key details ie. `CSV_FILE="../../../secrets/deployment-ac215-user_accessKeys.csv"` in docker-shell.sh file
 - Run `sh docker-shell.sh` 
 
+### Create Empty ECR Repositories
+
+Go here - https://us-east-1.console.aws.amazon.com/ecr/private-registry/repositories?region=us-east-1 
+
+- cheese-app-vector-db-cli
+- cheese-app-api-service
+- cheese-app-frontend-react
 
 #### Build and Push Docker Containers to AWS ECR (Elastic Container Registry)
 ```

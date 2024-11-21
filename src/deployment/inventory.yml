@@ -1,7 +1,8 @@
 all:
   vars:
     ansible_user: ubuntu
-    ansible_ssh_private_key_file: "/root/.ssh/ac215_2024.pem"
+    # ansible_ssh_private_key_file: "/root/.ssh/ac215_2024.pem" ## Github Actions
+    ansible_ssh_private_key_file: "{{ lookup('env', 'SSH_KEY_PATH') | default('/secrets/ac215_2024.pem', true) }}"   
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     aws_access_key: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
     aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
@@ -27,4 +28,4 @@ all:
   children:
     appserver:
       hosts:
-        34.230.43.26:
+        3.94.59.71:

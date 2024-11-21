@@ -104,6 +104,7 @@ jobs:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_DEFAULT_REGION: "us-east-1"
           DOCKER_TAG: ${{ env.DOCKER_TAG }} 
+          SSH_KEY_PATH: "/root/.ssh/ac215_2024.pem"  # Path for CI/CD
         run: |
           # Print the tag we're deploying
           echo "Deploying with tag: $DOCKER_TAG"

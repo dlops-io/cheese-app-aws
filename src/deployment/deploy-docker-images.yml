@@ -2,18 +2,18 @@
   hosts: localhost
   gather_facts: false
   vars:
-    # aws_account_id: "{{ lookup('env','AWS_ACCOUNT_ID') }}"
-    aws_account_id: "744940782804"
+    aws_account_id: "{{ lookup('env','AWS_ACCOUNT_ID') }}"
     ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
   tasks:
- 
+  - name: Login to AWS ECR
+    shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ ecr_registry }}"
+
   - name: "Get timestamp for docker tag"
     shell: "(date +%Y%m%d%H%M%S)"
     register: tag
   - name: Print tag
     debug:
       var: tag
-
 
   - name: Build frontend container image
     community.general.docker_image:

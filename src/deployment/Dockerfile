@@ -34,7 +34,7 @@ RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --d
     echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends kubectl helm python3.9 python3-pip && \
-    pip install openshift ansible docker apache-libcloud boto3 botocore pipenv
+    pip install ansible>=9.0.0 openshift docker apache-libcloud boto3 botocore pipenv
 
 RUN useradd -ms /bin/bash app -d /home/app -u 1000 -p "$(openssl passwd -1 passw0rd)" && \
     usermod -aG docker app && \
@@ -53,7 +53,10 @@ ADD --chown=app:app . /app
 
 # Install ansible dependencies
 RUN set -ex; \
-    ansible-galaxy collection install community.general community.kubernetes
+    ansible-galaxy collection install community.general community.kubernetes 
+
+# community.aws - version issues
+
 
 # Start a new shell to use the installed SDK
 # ENTRYPOINT ["/bin/bash","./docker-entrypoint.sh"]

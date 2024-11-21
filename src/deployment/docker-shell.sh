@@ -24,6 +24,8 @@ fi
 export IMAGE_NAME="cheese-app-deployment"
 export BASE_DIR=$(pwd)
 export SECRETS_DIR=$(pwd)/../../../../secrets/
+export SSH_KEY_PATH="/secrets/ac215_2024.pem"  # Path inside container
+
 
 # Build the image based on the Dockerfile
 #docker build -t $IMAGE_NAME -f Dockerfile .
@@ -42,5 +44,6 @@ docker run --rm --name $IMAGE_NAME -ti \
 -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
 -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION \
 -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \
+-e SSH_KEY_PATH=$SSH_KEY_PATH \
 $IMAGE_NAME
 
