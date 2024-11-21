@@ -1,7 +1,8 @@
 #!/bin/bash
 
-echo "Container is running!!!"
-#!/bin/bash
+set -x  # Print commands as they're executed
+echo "=== Starting docker-entrypoint.sh ==="
+
 
 echo "Container is running!!!"
 
@@ -39,14 +40,27 @@ fi
 # # Configure ECR (Elastic Container Registry)
 # aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
-args="$@"
-echo $args
+# args="$@"
+# echo $args
 
-if [[ -z ${args} ]]; 
-then
-    #/bin/bash
-    pipenv shell
+# if [[ -z ${args} ]]; 
+# then
+#     #/bin/bash
+#     pipenv shell
+# else
+#     #/bin/bash $args ## Github Actions
+#     pipenv run $args
+# fi
+
+
+args="$@"
+echo "Command arguments: $args"
+
+if [[ -z ${args} ]]; then
+    # If no arguments provided, start interactive shell
+    /bin/bash
 else
-    #/bin/bash $args ## Github Actions
-    pipenv run $args
+    # Execute the provided command
+    echo "Executing command: $args"
+    exec $args
 fi

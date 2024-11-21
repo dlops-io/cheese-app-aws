@@ -56,5 +56,7 @@ RUN set -ex; \
     ansible-galaxy collection install community.general community.kubernetes
 
 # Start a new shell to use the installed SDK
-ENTRYPOINT ["/bin/bash","./docker-entrypoint.sh"]
+# ENTRYPOINT ["/bin/bash","./docker-entrypoint.sh"]
+
+CMD ["/bin/bash"]
 
