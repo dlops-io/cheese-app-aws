@@ -37,20 +37,6 @@ else
     aws --version
     exit 1
 fi
-# # Configure ECR (Elastic Container Registry)
-# aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-
-# args="$@"
-# echo $args
-
-# if [[ -z ${args} ]]; 
-# then
-#     #/bin/bash
-#     pipenv shell
-# else
-#     #/bin/bash $args ## Github Actions
-#     pipenv run $args
-# fi
 
 
 args="$@"

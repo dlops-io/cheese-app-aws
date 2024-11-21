@@ -103,6 +103,15 @@ ansible-playbook deploy-provision-instance.yml -i inventory.yml
 ```
 
 #### Setup Docker Containers in the  Compute Instance
+
+Following line needs to be fixed for ci/cd pipeline and no ci/cd pipeline in inventory.yml file
+
+- ansible_ssh_private_key_file: "/root/.ssh/ac215_2024.pem" ## Github Actions
+
+- ansible_ssh_private_key_file: "{{ lookup('env', 'AWS_SSH_KEY') | default('/secrets/ac215_2024.pem', true) }}"   # no ci/cd
+
+
+
 ```
 ansible-playbook deploy-setup-containers.yml -i inventory.yml
 ```

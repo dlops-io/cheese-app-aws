@@ -12,9 +12,6 @@ all:
     aws_application_credentials: "/secrets/deployment-ac215-user_accessKeys.csv"
 
     aws_region: "us-east-1"
-    # aws_vpc: "vpc-xxxxxxxx"
-    # aws_subnet: "subnet-xxxxxxxx"
-    # aws_security_group: "sg-xxxxxxxx"
     aws_instance_type: "t2.large"
     aws_keypair_name: "ac215_2024"  ## Change this 
     aws_ami_id: "ami-0e86e20dae9224db8"  

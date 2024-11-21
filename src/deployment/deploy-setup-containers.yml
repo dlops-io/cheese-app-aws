@@ -118,30 +118,41 @@
         msg: "Using docker tag: {{ docker_tag }}"
 
     # Add these tasks before creating new containers
-    # Replace the Stop and Remove container tasks with this
-    - name: Force stop and remove all containers
-      shell: |
-        echo "Stopping containers..."
-        docker stop frontend api-service vector-db || true
-        echo "Removing containers..."
-        docker rm frontend api-service vector-db || true
-        echo "Removing images..."
-        docker rmi $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/*' -q) || true
-      ignore_errors: yes
+    # # Replace the Stop and Remove container tasks with this
+    # - name: Force stop and remove all containers
+    #   shell: |
+    #     echo "Stopping containers..."
+    #     docker stop frontend api-service vector-db || true
+    #     echo "Removing containers..."
+    #     docker rm frontend api-service vector-db || true
+    #     echo "Removing images..."
+    #     docker rmi $(docker images '{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/*' -q) || true
+    #   ignore_errors: yes
 
-    - name: Force pull new images
-      shell: |
-        echo "Pulling frontend image..."
-        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ docker_tag }}
-        echo "Pulling vector-db-cli image..."
-        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ docker_tag }}
-        echo "Pulling api-service image..."
-        docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ docker_tag }}
-      register: pull_output
+    # - name: Force pull new images
+    #   shell: |
+    #     echo "Pulling frontend image..."
+    #     docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ docker_tag }}
+    #     echo "Pulling vector-db-cli image..."
+    #     docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ docker_tag }}
+    #     echo "Pulling api-service image..."
+    #     docker pull {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ docker_tag }}
+    #   register: pull_output
 
-    - name: Show pull output
-      debug:
-        var: pull_output.stdout_lines
+    # - name: Show pull output
+    #   debug:
+    #     var: pull_output.stdout_lines
+
+    - name: Manage Docker Images
+      docker_image:
+        name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ item }}:{{ docker_tag }}"
+        source: pull
+        force_source: yes
+        state: present
+      loop:
+        - cheese-app-frontend-react
+        - cheese-app-vector-db-cli
+        - cheese-app-api-service
 
     - name: Create frontend container
       docker_container:
