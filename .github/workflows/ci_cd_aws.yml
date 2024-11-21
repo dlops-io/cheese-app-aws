@@ -103,6 +103,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_DEFAULT_REGION: "us-east-1"
+          DOCKER_TAG: ${{ env.DOCKER_TAG }} 
         run: |
           # Deploy containers
           docker run --rm --name cheese-app-deployment \
@@ -128,7 +129,7 @@ jobs:
                              aws_region='$AWS_DEFAULT_REGION' \
                              aws_account_id='$AWS_ACCOUNT_ID' \
                              docker_network_name='appnetwork' \
-                             tag='$DOCKER_TAG'\""
+                             docker_tag='$DOCKER_TAG'\""
 
       - name: Setup Webserver
         if: contains(github.event.head_commit.message, '/run-deploy-app')

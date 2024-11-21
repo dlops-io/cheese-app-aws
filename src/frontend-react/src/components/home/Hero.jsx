@@ -10,7 +10,7 @@ export default function Hero() {
         >
             <div className="container mx-auto px-4">
                 <h1 className="text-5xl md:text-7xl font-playfair text-white mb-6">
-                    Fragile 🧀 Formaggio.me is here!
+                    🧀 Formaggio.me is here!
                 </h1>
                 <p className="text-xl md:text-2xl text-white">
                     Discover the world of cheese through AI

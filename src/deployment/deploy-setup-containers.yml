@@ -93,10 +93,30 @@
           - "Region: {{ aws_region }}"
           - "Registry: {{ ecr_registry }}"
 
+    - name: Set docker tag from environment if available
+      set_fact:
+        docker_tag: "{{ lookup('env', 'DOCKER_TAG') }}"
+      when: lookup('env', 'DOCKER_TAG') != ""
+
+    - name: Set docker tag from file if environment variable is not set
+      block:
+        - name: Read docker tag from file
+          shell: "cat .docker-tag"
+          register: tag_file
+        - name: Set docker tag from file
+          set_fact:
+            docker_tag: "{{ tag_file.stdout }}"
+      when: lookup('env', 'DOCKER_TAG') == ""
+
+    - name: Debug final docker tag
+      debug:
+        msg: "Using docker tag: {{ docker_tag }}"
+
+
     - name: Create frontend container
       docker_container:
         name: "frontend"
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ tag.stdout}}"
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-frontend-react:{{ docker_tag }}"
         state: started
         recreate: yes
         pull: yes
@@ -134,13 +154,13 @@
         -e CHROMADB_HOST="vector-db" 
         -e CHROMADB_PORT="8000" 
         --network "{{docker_network_name}}" 
-        "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ tag.stdout}}" 
+        "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-vector-db-cli:{{ docker_tag }}" 
         cli.py --download --load --chunk_type recursive-split
 
     - name: Create api-service container
       docker_container:
         name: "api-service"
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ tag.stdout}}"
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/cheese-app-api-service:{{ docker_tag }}"
         state: started
         recreate: yes
         published_ports:
